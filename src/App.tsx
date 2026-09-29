@@ -40,9 +40,16 @@ const fallbackCard: DigitalCard = {
   default_theme: 'memphis',
 };
 
+function initialTheme(fallback: Theme): Theme {
+  if (typeof window !== 'undefined' && window.location.pathname.toLowerCase().includes('zetu')) {
+    return 'zetu';
+  }
+  return fallback;
+}
+
 function App() {
   const [card] = useState<DigitalCard>(fallbackCard);
-  const [theme, setTheme] = useState<Theme>(fallbackCard.default_theme);
+  const [theme, setTheme] = useState<Theme>(() => initialTheme(fallbackCard.default_theme));
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
@@ -53,7 +60,7 @@ function App() {
   // Canonical public URL: set VITE_SITE_URL in production (Vercel env vars)
   // so QR codes and shared links never point at preview deployments.
   const siteUrl = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/+$/, '') || window.location.origin;
-  const cardUrl = `${siteUrl}/card/${card.slug}`;
+  const cardUrl = isMemphis ? `${siteUrl}/card/${card.slug}` : `${siteUrl}/zetu/`;
 
   const initials = useMemo(
     () => card.full_name.split(' ').map((part) => part[0]).join('').slice(0, 2),
@@ -153,11 +160,11 @@ function App() {
           <div className="card-top-swoop" />
           <div className="card-top-content">
             {isMemphis ? (
-              <img className="memphis-logo" src="/memphislogo.png" alt="Memphis Capital" />
+              <img className="memphis-logo" src="/memphis-logo.png" alt="Memphis Capital" />
             ) : (
               <img
                 className="zetu-logo"
-                src="/06bcb39a17c7486c9e5771ca6581eb95~tplv-wopfjsm1ax-resize_360_240.webp"
+                src="/zetu-logo.webp"
                 alt="Zetu by Memphis Capital"
               />
             )}
