@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   ArrowUpRight,
   Check,
@@ -9,12 +9,10 @@ import {
   Mail,
   Phone,
   ScanLine,
-  Send,
   Share2,
-  Sparkles,
 } from 'lucide-react';
-import { supabase } from '@/lib/supabase';
 import { WhatsAppIcon } from '@/components/BrandIcons';
+import { QRCodeSVG } from 'qrcode.react';
 
 type Theme = 'memphis' | 'zetu';
 
@@ -38,46 +36,24 @@ const fallbackCard: DigitalCard = {
   whatsapp: '+254 727 583260',
   email: 'info@memphiscapital.co.ke',
   memphis_website: 'www.memphiscapital.co.ke',
-  zetu_website: 'zetu.memphiscaptial.co.ke',
+  zetu_website: 'zetu.memphiscapital.co.ke',
   default_theme: 'memphis',
 };
 
 function App() {
-  const [card, setCard] = useState<DigitalCard>(fallbackCard);
-  const [theme, setTheme] = useState<Theme>('memphis');
+  const [card] = useState<DigitalCard>(fallbackCard);
+  const [theme, setTheme] = useState<Theme>(fallbackCard.default_theme);
   const [isThemeMenuOpen, setIsThemeMenuOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
-  const [loadError, setLoadError] = useState('');
-
-  useEffect(() => {
-    async function loadCard() {
-      const { data, error } = await supabase
-        .from('digital_cards')
-        .select('slug, full_name, job_title, phone, whatsapp, email, memphis_website, zetu_website, default_theme')
-        .eq('slug', 'maurice-gimose')
-        .maybeSingle();
-
-      if (error) {
-        setLoadError('Showing the saved preview while the card service reconnects.');
-        return;
-      }
-
-      if (data) {
-        const nextCard = data as DigitalCard;
-        setCard(nextCard);
-        setTheme(nextCard.default_theme);
-      }
-    }
-
-    void loadCard();
-  }, []);
 
   const isMemphis = theme === 'memphis';
   const website = isMemphis ? card.memphis_website : card.zetu_website;
   const websiteHref = `https://${website}`;
-  const cardUrl = `${window.location.origin}/card/${card.slug}`;
-  const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=180x180&margin=8&data=${encodeURIComponent(cardUrl)}`;
+  // Canonical public URL: set VITE_SITE_URL in production (Vercel env vars)
+  // so QR codes and shared links never point at preview deployments.
+  const siteUrl = (import.meta.env.VITE_SITE_URL as string | undefined)?.replace(/\/+$/, '') || window.location.origin;
+  const cardUrl = `${siteUrl}/card/${card.slug}`;
 
   const initials = useMemo(
     () => card.full_name.split(' ').map((part) => part[0]).join('').slice(0, 2),
@@ -85,18 +61,26 @@ function App() {
   );
 
   async function copyCardLink() {
-    await navigator.clipboard.writeText(cardUrl);
+    try {
+      await navigator.clipboard.writeText(cardUrl);
+    } catch {
+      return;
+    }
     setCopied(true);
     window.setTimeout(() => setCopied(false), 2200);
   }
 
   async function shareCard() {
     if (navigator.share) {
-      await navigator.share({
-        title: `${card.full_name} | ${isMemphis ? 'Memphis Capital' : 'Zetu'}`,
-        text: `Connect with ${card.full_name}`,
-        url: cardUrl,
-      });
+      try {
+        await navigator.share({
+          title: `${card.full_name} | ${isMemphis ? 'Memphis Capital' : 'Zetu'}`,
+          text: `Connect with ${card.full_name}`,
+          url: cardUrl,
+        });
+      } catch {
+        // Share cancelled or unavailable — stay on the card.
+      }
       return;
     }
 
@@ -165,13 +149,6 @@ function App() {
       </header>
 
       <section className="showcase" aria-label="Digital business card">
-        <div className="intro-copy">
-          <p className="eyebrow"><Sparkles size={14} /> Your professional presence, beautifully shared</p>
-          <h1>Make every<br /><em>connection</em> count.</h1>
-          <p className="intro-description">One elegant card for the conversations that move business forward.</p>
-          <div className="intro-rule"><span /><span /><span /></div>
-        </div>
-
         <article className={`business-card ${isMemphis ? 'business-card-memphis' : 'business-card-zetu'}`}>
           <div className="card-top-swoop" />
           <div className="card-top-content">
@@ -235,7 +212,7 @@ function App() {
               <p>Keep my details close. Share our next conversation.</p>
             </div>
             <div className="qr-frame">
-              <img src={qrUrl} alt="QR code for Maurice Gimose's digital card" />
+              <QRCodeSVG value={cardUrl} size={70} marginSize={1} level="M" title={`QR code for ${card.full_name}'s digital card`} />
             </div>
           </div>
 
@@ -259,11 +236,7 @@ function App() {
             <span>{copied ? 'Link copied' : 'Copy link'}</span>
           </button>
         </div>
-
-        <p className="scroll-note"><Send size={14} /> Tap any detail to connect</p>
       </section>
-
-      {loadError && <div className="service-note" role="status">{loadError}</div>}
     </main>
   );
 }
